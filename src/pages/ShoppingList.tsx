@@ -2,11 +2,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, X, Check, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, X, Check, ShoppingCart, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useShoppingList } from "@/hooks/useShoppingList";
 import { useStoreRoster } from "@/hooks/useStoreRoster";
 import { useAuth } from "@/hooks/useAuth";
+import { InfoIcon } from "@/components/InfoIcon";
 
 const ShoppingList = () => {
   const navigate = useNavigate();
@@ -21,8 +22,25 @@ const ShoppingList = () => {
     clearList, 
     getOptimizedRoute, 
     getTotalCost, 
-    getItemsByStore 
+    getItemsByStore,
+    addItem
   } = useShoppingList();
+
+  // Add some test items for debugging
+  const addTestItem = () => {
+    const testItem = {
+      productId: `test-${Date.now()}`,
+      productName: "Test Product",
+      store: "Target",
+      price: 9.99
+    };
+    console.log('Adding test item:', testItem);
+    addItem(testItem);
+    toast({
+      title: "Test item added",
+      description: "Added a test item to your shopping list",
+    });
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -34,6 +52,7 @@ const ShoppingList = () => {
     console.log('ShoppingList rendered with items:', items);
     console.log('Items count:', items.length);
     console.log('Loading states - auth:', authLoading, 'list:', listLoading);
+    console.log('localStorage content:', localStorage.getItem("sift_shopping_list"));
   }, [items, authLoading, listLoading]);
 
   const handleRemoveItem = (id: number) => {
@@ -91,24 +110,39 @@ const ShoppingList = () => {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-lg font-semibold">Shopping List</h1>
-            <p className="text-sm text-gray-500">{items.length} items</p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h1 className="text-lg font-semibold">Shopping List</h1>
+              <p className="text-sm text-gray-500">{items.length} items</p>
+            </div>
+            <InfoIcon 
+              content="Your shopping list automatically saves items and optimizes routes based on your store roster preferences. Items are grouped by store for efficient shopping."
+              className="ml-2"
+            />
           </div>
         </div>
-        <div className="text-right">
-          <div className="font-semibold text-lg">${totalCost.toFixed(2)}</div>
-          {items.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearList}
-              className="text-red-600 hover:text-red-700 mt-1"
-            >
-              <Trash2 className="h-3 w-3 mr-1" />
-              Clear All
-            </Button>
-          )}
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <div className="font-semibold text-lg">${totalCost.toFixed(2)}</div>
+            {items.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearList}
+                className="text-red-600 hover:text-red-700 mt-1"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Clear All
+              </Button>
+            )}
+          </div>
+          <Button
+            onClick={addTestItem}
+            className="bg-blue-600 hover:bg-blue-700"
+            size="icon"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -122,17 +156,25 @@ const ShoppingList = () => {
             <p className="text-sm text-gray-500 mb-4">
               Add items from product pages to build your shopping list
             </p>
-            <Button onClick={() => navigate("/home")}>
-              Start Shopping
-            </Button>
+            <div className="space-y-3">
+              <Button onClick={() => navigate("/home")}>
+                Start Shopping
+              </Button>
+              <Button onClick={addTestItem} variant="outline">
+                Add Test Item
+              </Button>
+            </div>
             
-            {/* Debug info in development */}
+            {/* Debug info */}
             <div className="mt-8 p-4 bg-yellow-50 rounded-lg">
               <p className="text-xs text-yellow-800">
                 <strong>Debug Info:</strong> Items in list: {items.length}
               </p>
               <p className="text-xs text-yellow-700 mt-1">
-                LocalStorage key: shopping_list
+                LocalStorage key: sift_shopping_list
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Raw storage: {localStorage.getItem("sift_shopping_list") || "null"}
               </p>
             </div>
           </div>
@@ -140,7 +182,10 @@ const ShoppingList = () => {
           <>
             {/* Roster Integration Notice */}
             {roster.length > 0 && (
-              <div className="bg-blue-50 rounded-xl p-4 mb-4">
+              <div className="bg-blue-50 rounded-xl p-4 mb-4 flex items-start gap-2">
+                <InfoIcon 
+                  content="Smart routing uses your store roster preferences to create the most efficient shopping path, saving you time and gas money."
+                />
                 <p className="text-sm text-blue-800">
                   <strong>Smart Routing:</strong> Your route will be optimized based on your store roster preferences for the best shopping experience.
                 </p>
@@ -168,6 +213,9 @@ const ShoppingList = () => {
                             #{rosterStore.preference_order + 1} in Roster
                           </span>
                         )}
+                        <InfoIcon 
+                          content={`Store details: ${store}. ${rosterStore ? `This store is #${rosterStore.preference_order + 1} in your roster.` : 'This store is not in your roster yet.'}`}
+                        />
                       </div>
                       <div className="text-sm text-gray-500">
                         ${storeItems.reduce((sum, item) => sum + item.price, 0).toFixed(2)}
@@ -224,17 +272,22 @@ const ShoppingList = () => {
               </Button>
               
               {roster.length === 0 && (
-                <div className="bg-yellow-50 rounded-xl p-4">
-                  <p className="text-sm text-yellow-800 mb-2">
-                    <strong>Tip:</strong> Add stores to your roster for smarter route optimization!
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/stores')}
-                  >
-                    Build Store Roster
-                  </Button>
+                <div className="bg-yellow-50 rounded-xl p-4 flex items-start gap-2">
+                  <InfoIcon 
+                    content="Building a store roster allows Sift to optimize your shopping routes based on your preferences, saving time and money."
+                  />
+                  <div>
+                    <p className="text-sm text-yellow-800 mb-2">
+                      <strong>Tip:</strong> Add stores to your roster for smarter route optimization!
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/stores')}
+                    >
+                      Build Store Roster
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

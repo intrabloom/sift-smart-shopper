@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useStoreRoster } from './useStoreRoster';
 import { useAuth } from './useAuth';
@@ -24,6 +23,8 @@ export interface OptimizedRoute {
   rosterOrder: number;
 }
 
+const STORAGE_KEY = "sift_shopping_list";
+
 export const useShoppingList = () => {
   const { user } = useAuth();
   const { roster } = useStoreRoster();
@@ -33,11 +34,23 @@ export const useShoppingList = () => {
   // Load items from localStorage on mount
   useEffect(() => {
     try {
-      const savedList = localStorage.getItem("shopping_list");
-      if (savedList) {
+      const savedList = localStorage.getItem(STORAGE_KEY);
+      console.log('Raw localStorage data:', savedList);
+      
+      if (savedList && savedList !== 'undefined' && savedList !== 'null') {
         const parsedList = JSON.parse(savedList);
-        console.log('Loading shopping list from localStorage:', parsedList);
-        setItems(Array.isArray(parsedList) ? parsedList : []);
+        console.log('Parsed shopping list from localStorage:', parsedList);
+        
+        if (Array.isArray(parsedList)) {
+          setItems(parsedList);
+          console.log('Successfully loaded', parsedList.length, 'items from localStorage');
+        } else {
+          console.log('Parsed data is not an array, initializing empty list');
+          setItems([]);
+        }
+      } else {
+        console.log('No valid shopping list found in localStorage, starting with empty list');
+        setItems([]);
       }
     } catch (error) {
       console.error('Error loading shopping list from localStorage:', error);
@@ -51,8 +64,10 @@ export const useShoppingList = () => {
   useEffect(() => {
     if (!isLoading) {
       try {
-        localStorage.setItem("shopping_list", JSON.stringify(items));
-        console.log('Saved shopping list to localStorage:', items);
+        const dataToSave = JSON.stringify(items);
+        localStorage.setItem(STORAGE_KEY, dataToSave);
+        console.log('Saved shopping list to localStorage:', items.length, 'items');
+        console.log('Saved data:', dataToSave);
       } catch (error) {
         console.error('Error saving shopping list to localStorage:', error);
       }
@@ -79,6 +94,8 @@ export const useShoppingList = () => {
       checked: false
     };
     
+    console.log('Creating new item:', newItem);
+    
     setItems(prevItems => {
       const updatedItems = [...prevItems, newItem];
       console.log('Updated shopping list items:', updatedItems);
@@ -90,7 +107,11 @@ export const useShoppingList = () => {
 
   const removeItem = (id: number) => {
     console.log('Removing item from shopping list:', id);
-    setItems(prevItems => prevItems.filter(item => item.id !== id));
+    setItems(prevItems => {
+      const newItems = prevItems.filter(item => item.id !== id);
+      console.log('Items after removal:', newItems);
+      return newItems;
+    });
   };
 
   const toggleItem = (id: number) => {
@@ -105,6 +126,7 @@ export const useShoppingList = () => {
   const clearList = () => {
     console.log('Clearing shopping list');
     setItems([]);
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   const getOptimizedRoute = (): OptimizedRoute[] => {
