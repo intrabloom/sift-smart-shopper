@@ -15,6 +15,7 @@ const ShoppingList = () => {
   const { roster } = useStoreRoster();
   const { 
     items, 
+    isLoading: listLoading,
     removeItem, 
     toggleItem, 
     clearList, 
@@ -29,7 +30,14 @@ const ShoppingList = () => {
     }
   }, [user, authLoading, navigate]);
 
+  useEffect(() => {
+    console.log('ShoppingList rendered with items:', items);
+    console.log('Items count:', items.length);
+    console.log('Loading states - auth:', authLoading, 'list:', listLoading);
+  }, [items, authLoading, listLoading]);
+
   const handleRemoveItem = (id: number) => {
+    console.log('Removing item with id:', id);
     removeItem(id);
     toast({
       title: "Item removed",
@@ -46,6 +54,7 @@ const ShoppingList = () => {
       });
       return;
     }
+    console.log('Navigating to route with items:', items);
     navigate("/route");
   };
 
@@ -60,7 +69,8 @@ const ShoppingList = () => {
   const storeGroups = getItemsByStore();
   const totalCost = getTotalCost();
 
-  if (authLoading) {
+  // Show loading spinner while authentication or list is loading
+  if (authLoading || listLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -109,9 +119,22 @@ const ShoppingList = () => {
               <ShoppingCart className="h-12 w-12 mx-auto mb-2" />
               Your shopping list is empty
             </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Add items from product pages to build your shopping list
+            </p>
             <Button onClick={() => navigate("/home")}>
               Start Shopping
             </Button>
+            
+            {/* Debug info in development */}
+            <div className="mt-8 p-4 bg-yellow-50 rounded-lg">
+              <p className="text-xs text-yellow-800">
+                <strong>Debug Info:</strong> Items in list: {items.length}
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                LocalStorage key: shopping_list
+              </p>
+            </div>
           </div>
         ) : (
           <>

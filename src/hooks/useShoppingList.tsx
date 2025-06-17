@@ -28,43 +28,83 @@ export const useShoppingList = () => {
   const { user } = useAuth();
   const { roster } = useStoreRoster();
   const [items, setItems] = useState<ShoppingListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Load items from localStorage on mount
   useEffect(() => {
-    const savedList = JSON.parse(localStorage.getItem("shopping_list") || "[]");
-    setItems(savedList);
+    try {
+      const savedList = localStorage.getItem("shopping_list");
+      if (savedList) {
+        const parsedList = JSON.parse(savedList);
+        console.log('Loading shopping list from localStorage:', parsedList);
+        setItems(Array.isArray(parsedList) ? parsedList : []);
+      }
+    } catch (error) {
+      console.error('Error loading shopping list from localStorage:', error);
+      setItems([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  // Save items to localStorage whenever items change
+  useEffect(() => {
+    if (!isLoading) {
+      try {
+        localStorage.setItem("shopping_list", JSON.stringify(items));
+        console.log('Saved shopping list to localStorage:', items);
+      } catch (error) {
+        console.error('Error saving shopping list to localStorage:', error);
+      }
+    }
+  }, [items, isLoading]);
+
   const addItem = (item: Omit<ShoppingListItem, 'id' | 'addedAt'>) => {
+    console.log('Adding item to shopping list:', item);
+    
+    // Check if item already exists
+    const existingItem = items.find(existingItem => 
+      existingItem.productId === item.productId && existingItem.store === item.store
+    );
+    
+    if (existingItem) {
+      console.log('Item already exists in shopping list');
+      return existingItem;
+    }
+    
     const newItem: ShoppingListItem = {
       ...item,
-      id: Date.now(),
+      id: Date.now() + Math.random(), // More unique ID
       addedAt: new Date().toISOString(),
       checked: false
     };
     
-    const updatedItems = [...items, newItem];
-    setItems(updatedItems);
-    localStorage.setItem("shopping_list", JSON.stringify(updatedItems));
+    setItems(prevItems => {
+      const updatedItems = [...prevItems, newItem];
+      console.log('Updated shopping list items:', updatedItems);
+      return updatedItems;
+    });
+    
     return newItem;
   };
 
   const removeItem = (id: number) => {
-    const updatedItems = items.filter(item => item.id !== id);
-    setItems(updatedItems);
-    localStorage.setItem("shopping_list", JSON.stringify(updatedItems));
+    console.log('Removing item from shopping list:', id);
+    setItems(prevItems => prevItems.filter(item => item.id !== id));
   };
 
   const toggleItem = (id: number) => {
-    const updatedItems = items.map(item => 
-      item.id === id ? { ...item, checked: !item.checked } : item
+    console.log('Toggling item in shopping list:', id);
+    setItems(prevItems => 
+      prevItems.map(item => 
+        item.id === id ? { ...item, checked: !item.checked } : item
+      )
     );
-    setItems(updatedItems);
-    localStorage.setItem("shopping_list", JSON.stringify(updatedItems));
   };
 
   const clearList = () => {
+    console.log('Clearing shopping list');
     setItems([]);
-    localStorage.removeItem("shopping_list");
   };
 
   const getOptimizedRoute = (): OptimizedRoute[] => {
@@ -120,6 +160,7 @@ export const useShoppingList = () => {
 
   return {
     items,
+    isLoading,
     addItem,
     removeItem,
     toggleItem,
