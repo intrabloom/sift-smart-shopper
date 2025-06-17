@@ -2,14 +2,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Camera, Search, ShoppingCart, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import BarcodeScanner from "@/components/BarcodeScanner";
+import ProductSearch from "@/components/ProductSearch";
 
 const Home = () => {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
@@ -21,22 +23,14 @@ const Home = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const handleScan = () => {
-    toast({
-      title: "Scanner opened",
-      description: "Point your camera at a barcode",
-    });
-    setTimeout(() => {
-      const mockBarcode = "123456789012";
-      navigate(`/product/${mockBarcode}`);
-    }, 2000);
+  const handleScan = (barcode: string) => {
+    setShowScanner(false);
+    navigate(`/product/${barcode}`);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
+  const handleProductSelect = (product: any) => {
+    setShowSearch(false);
+    navigate(`/product/${product.upc}`);
   };
 
   if (authLoading) {
@@ -76,7 +70,7 @@ const Home = () => {
         <div className="bg-white rounded-xl p-6 shadow-sm">
           <h2 className="text-lg font-semibold mb-4">Scan Product</h2>
           <Button
-            onClick={handleScan}
+            onClick={() => setShowScanner(true)}
             className="w-full bg-blue-600 hover:bg-blue-700 h-32 text-lg"
           >
             <Camera className="h-8 w-8 mr-3" />
@@ -87,17 +81,27 @@ const Home = () => {
         {/* Search Section */}
         <div className="bg-white rounded-xl p-6 shadow-sm">
           <h2 className="text-lg font-semibold mb-4">Search Products</h2>
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <Input
-              placeholder="Search for products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1"
-            />
-            <Button type="submit" size="icon">
+          {showSearch ? (
+            <div>
+              <ProductSearch onProductSelect={handleProductSelect} />
+              <Button
+                variant="outline"
+                onClick={() => setShowSearch(false)}
+                className="mt-4 w-full"
+              >
+                Hide Search
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={() => setShowSearch(true)}
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2"
+            >
               <Search className="h-4 w-4" />
+              Search Products
             </Button>
-          </form>
+          )}
         </div>
 
         {/* Quick Actions */}
@@ -121,10 +125,18 @@ const Home = () => {
         </div>
       </div>
 
+      {/* Barcode Scanner Modal */}
+      {showScanner && (
+        <BarcodeScanner
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
         <div className="flex justify-around">
-          <Button variant="ghost" className="flex-col h-auto py-2">
+          <Button variant="ghost" className="flex-col h-auto py-2" onClick={() => setShowScanner(true)}>
             <Camera className="h-5 w-5 mb-1" />
             <span className="text-xs">Scan</span>
           </Button>

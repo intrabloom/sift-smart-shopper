@@ -9,6 +9,96 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      product_prices: {
+        Row: {
+          id: string
+          in_stock: boolean | null
+          last_updated: string | null
+          price: number
+          product_id: string
+          sale_price: number | null
+          store_id: string
+        }
+        Insert: {
+          id?: string
+          in_stock?: boolean | null
+          last_updated?: string | null
+          price: number
+          product_id: string
+          sale_price?: number | null
+          store_id: string
+        }
+        Update: {
+          id?: string
+          in_stock?: boolean | null
+          last_updated?: string | null
+          price?: number
+          product_id?: string
+          sale_price?: number | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_prices_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          allergens: string[] | null
+          brand: string | null
+          category: string | null
+          created_at: string | null
+          id: string
+          image_url: string | null
+          ingredients: string | null
+          name: string
+          nutrition_facts: Json | null
+          size: string | null
+          upc: string
+          updated_at: string | null
+        }
+        Insert: {
+          allergens?: string[] | null
+          brand?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string | null
+          name: string
+          nutrition_facts?: Json | null
+          size?: string | null
+          upc: string
+          updated_at?: string | null
+        }
+        Update: {
+          allergens?: string[] | null
+          brand?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string | null
+          name?: string
+          nutrition_facts?: Json | null
+          size?: string | null
+          upc?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -173,6 +263,30 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           zip_code?: string | null
+        }
+        Relationships: []
+      }
+      user_search_history: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_upc: string
+          search_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_upc: string
+          search_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_upc?: string
+          search_type?: string
+          user_id?: string
         }
         Relationships: []
       }
