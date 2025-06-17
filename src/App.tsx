@@ -12,6 +12,8 @@ import Profile from "./pages/Profile";
 import Product from "./pages/Product";
 import ShoppingList from "./pages/ShoppingList";
 import ShoppingRoute from "./pages/Route";
+import Stores from "./pages/Stores";
+import StoreRoster from "./pages/StoreRoster";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,7 +34,8 @@ const App = () => (
             <Route path="/shopping-list" element={<ShoppingList />} />
             <Route path="/route" element={<ShoppingRoute />} />
             <Route path="/search" element={<Product />} />
-            <Route path="/stores" element={<Home />} />
+            <Route path="/stores" element={<Stores />} />
+            <Route path="/store-roster" element={<StoreRoster />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

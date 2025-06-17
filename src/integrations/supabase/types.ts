@@ -42,12 +42,181 @@ export type Database = {
         }
         Relationships: []
       }
+      store_catalogs: {
+        Row: {
+          brand: string | null
+          id: string
+          in_stock: boolean | null
+          last_updated: string | null
+          price: number | null
+          product_name: string
+          store_id: string
+          upc: string | null
+        }
+        Insert: {
+          brand?: string | null
+          id?: string
+          in_stock?: boolean | null
+          last_updated?: string | null
+          price?: number | null
+          product_name: string
+          store_id: string
+          upc?: string | null
+        }
+        Update: {
+          brand?: string | null
+          id?: string
+          in_stock?: boolean | null
+          last_updated?: string | null
+          price?: number | null
+          product_name?: string
+          store_id?: string
+          upc?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_catalogs_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stores: {
+        Row: {
+          address: string
+          city: string
+          created_at: string | null
+          hours: Json | null
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          phone: string | null
+          state: string
+          supported_apis: string[] | null
+          updated_at: string | null
+          zip_code: string
+        }
+        Insert: {
+          address: string
+          city: string
+          created_at?: string | null
+          hours?: Json | null
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          phone?: string | null
+          state: string
+          supported_apis?: string[] | null
+          updated_at?: string | null
+          zip_code: string
+        }
+        Update: {
+          address?: string
+          city?: string
+          created_at?: string | null
+          hours?: Json | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          phone?: string | null
+          state?: string
+          supported_apis?: string[] | null
+          updated_at?: string | null
+          zip_code?: string
+        }
+        Relationships: []
+      }
+      user_locations: {
+        Row: {
+          address: string
+          city: string | null
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          latitude: number
+          longitude: number
+          name: string
+          state: string | null
+          updated_at: string | null
+          user_id: string
+          zip_code: string | null
+        }
+        Insert: {
+          address: string
+          city?: string | null
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          latitude: number
+          longitude: number
+          name: string
+          state?: string | null
+          updated_at?: string | null
+          user_id: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string
+          city?: string | null
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          latitude?: number
+          longitude?: number
+          name?: string
+          state?: string | null
+          updated_at?: string | null
+          user_id?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      user_store_roster: {
+        Row: {
+          created_at: string | null
+          id: string
+          preference_order: number | null
+          store_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          preference_order?: number | null
+          store_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          preference_order?: number | null
+          store_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_store_roster_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_distance: {
+        Args: { lat1: number; lon1: number; lat2: number; lon2: number }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
