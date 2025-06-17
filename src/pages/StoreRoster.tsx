@@ -49,7 +49,7 @@ const StoreRoster = () => {
       {/* Header */}
       <div className="bg-white shadow-sm p-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/home')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/stores')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
