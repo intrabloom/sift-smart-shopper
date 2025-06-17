@@ -5,26 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { Loader2 } from "lucide-react";
 
 const ProfileSetup = () => {
   const [zipCode, setZipCode] = useState("");
   const [favoriteStores, setFavoriteStores] = useState<string[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+  const { updateProfile } = useProfile();
 
   const mockStores = [
     "Walmart", "Target", "Kroger", "Safeway", "Whole Foods", "Costco"
   ];
 
   useEffect(() => {
-    const userData = localStorage.getItem("sift_user");
-    if (!userData) {
+    if (!authLoading && !user) {
       navigate("/");
-      return;
     }
-    setUser(JSON.parse(userData));
-  }, [navigate]);
+  }, [user, authLoading, navigate]);
 
   const toggleStore = (store: string) => {
     setFavoriteStores(prev => 
@@ -34,7 +36,7 @@ const ProfileSetup = () => {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!zipCode.trim()) {
       toast({
         title: "Zip code required",
@@ -44,22 +46,37 @@ const ProfileSetup = () => {
       return;
     }
 
-    const updatedUser = {
-      ...user,
-      zipCode,
-      favoriteStores,
-      profileComplete: true
-    };
-
-    localStorage.setItem("sift_user", JSON.stringify(updatedUser));
+    setSaving(true);
     
-    toast({
-      title: "Profile saved!",
-      description: "Your preferences have been updated",
+    const { error } = await updateProfile({
+      zip_code: zipCode,
+      favorite_stores: favoriteStores,
     });
-    
-    navigate("/home");
+
+    setSaving(false);
+
+    if (error) {
+      toast({
+        title: "Error saving profile",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Profile saved!",
+        description: "Your preferences have been updated",
+      });
+      navigate("/home");
+    }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   if (!user) return null;
 
@@ -104,8 +121,16 @@ const ProfileSetup = () => {
           <Button
             onClick={handleSave}
             className="w-full bg-blue-600 hover:bg-blue-700"
+            disabled={saving}
           >
-            Save & Continue
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save & Continue"
+            )}
           </Button>
         </div>
       </div>

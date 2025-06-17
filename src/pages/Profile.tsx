@@ -4,34 +4,39 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Edit2, LogOut } from "lucide-react";
+import { ArrowLeft, Edit2, LogOut, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
-  const [user, setUser] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [zipCode, setZipCode] = useState("");
   const [favoriteStores, setFavoriteStores] = useState<string[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signOut, loading: authLoading } = useAuth();
+  const { profile, loading: profileLoading, updateProfile } = useProfile();
 
   const mockStores = [
     "Walmart", "Target", "Kroger", "Safeway", "Whole Foods", "Costco"
   ];
 
   useEffect(() => {
-    const userData = localStorage.getItem("sift_user");
-    if (!userData) {
+    if (!authLoading && !user) {
       navigate("/");
       return;
     }
-    const parsedUser = JSON.parse(userData);
-    setUser(parsedUser);
-    setDisplayName(parsedUser.displayName || "");
-    setZipCode(parsedUser.zipCode || "");
-    setFavoriteStores(parsedUser.favoriteStores || []);
-  }, [navigate]);
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.display_name || "");
+      setZipCode(profile.zip_code || "");
+      setFavoriteStores(profile.favorite_stores || []);
+    }
+  }, [profile]);
 
   const toggleStore = (store: string) => {
     setFavoriteStores(prev => 
@@ -41,32 +46,52 @@ const Profile = () => {
     );
   };
 
-  const handleSave = () => {
-    const updatedUser = {
-      ...user,
-      displayName,
-      zipCode,
-      favoriteStores,
-    };
-
-    localStorage.setItem("sift_user", JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    setIsEditing(false);
-    
-    toast({
-      title: "Profile updated!",
-      description: "Your changes have been saved",
+  const handleSave = async () => {
+    const { error } = await updateProfile({
+      display_name: displayName,
+      zip_code: zipCode,
+      favorite_stores: favoriteStores,
     });
+
+    if (error) {
+      toast({
+        title: "Error updating profile",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setIsEditing(false);
+      toast({
+        title: "Profile updated!",
+        description: "Your changes have been saved",
+      });
+    }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("sift_user");
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out",
-    });
-    navigate("/");
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: "Error signing out",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out",
+      });
+      navigate("/");
+    }
   };
+
+  if (authLoading || profileLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   if (!user) return null;
 
@@ -102,7 +127,7 @@ const Profile = () => {
               <Input
                 id="email"
                 type="email"
-                value={user.email}
+                value={user.email || ""}
                 disabled
                 className="mt-1 bg-gray-50"
               />
@@ -156,16 +181,26 @@ const Profile = () => {
             <Button
               onClick={handleSave}
               className="flex-1 bg-blue-600 hover:bg-blue-700"
+              disabled={profileLoading}
             >
-              Save Changes
+              {profileLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
             <Button
               variant="outline"
               onClick={() => {
                 setIsEditing(false);
-                setDisplayName(user.displayName || "");
-                setZipCode(user.zipCode || "");
-                setFavoriteStores(user.favoriteStores || []);
+                if (profile) {
+                  setDisplayName(profile.display_name || "");
+                  setZipCode(profile.zip_code || "");
+                  setFavoriteStores(profile.favorite_stores || []);
+                }
               }}
               className="flex-1"
             >

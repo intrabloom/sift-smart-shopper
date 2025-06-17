@@ -3,31 +3,29 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Search, ShoppingCart, User } from "lucide-react";
+import { Camera, Search, ShoppingCart, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 
 const Home = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+  const { profile } = useProfile();
 
   useEffect(() => {
-    const userData = localStorage.getItem("sift_user");
-    if (!userData) {
+    if (!authLoading && !user) {
       navigate("/");
-      return;
     }
-    setUser(JSON.parse(userData));
-  }, [navigate]);
+  }, [user, authLoading, navigate]);
 
   const handleScan = () => {
-    // Mock barcode scan - in production this would open camera
     toast({
       title: "Scanner opened",
       description: "Point your camera at a barcode",
     });
-    // Simulate successful scan after 2 seconds
     setTimeout(() => {
       const mockBarcode = "123456789012";
       navigate(`/product/${mockBarcode}`);
@@ -41,7 +39,17 @@ const Home = () => {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   if (!user) return null;
+
+  const displayName = profile?.display_name || user.email?.split("@")[0] || "User";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,7 +57,7 @@ const Home = () => {
       <div className="bg-white shadow-sm p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Welcome back, {user.displayName}!</h1>
+            <h1 className="text-xl font-semibold text-gray-900">Welcome back, {displayName}!</h1>
             <p className="text-sm text-gray-500">Let's find the best deals</p>
           </div>
           <Button
