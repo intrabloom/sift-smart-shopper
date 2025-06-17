@@ -1,11 +1,11 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShoppingCart, MapPin, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, ShoppingCart, MapPin, Loader2, AlertCircle, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProducts } from "@/hooks/useProducts";
+import { useShoppingList } from "@/hooks/useShoppingList";
 
 interface Product {
   id: string;
@@ -40,6 +40,7 @@ const Product = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { getProductByBarcode, getProductPrices } = useProducts();
+  const { addItem } = useShoppingList();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [prices, setPrices] = useState<ProductPrice[]>([]);
@@ -106,12 +107,26 @@ const Product = () => {
     }
   }, [barcode]);
 
-  const handleAddToList = () => {
+  const handleAddToList = (storeInfo?: ProductPrice) => {
     if (!product) return;
+    
+    const store = storeInfo ? storeInfo.store.name : (bestStore?.store.name || 'Unknown Store');
+    const price = storeInfo ? (storeInfo.sale_price || storeInfo.price) : (bestStore?.sale_price || bestStore?.price || 0);
+    
+    const item = {
+      productId: product.id,
+      productName: product.name,
+      store: store,
+      storeId: storeInfo?.store.id || bestStore?.store.id,
+      price: price
+    };
+    
+    console.log('Adding item to shopping list:', item);
+    addItem(item);
     
     toast({
       title: "Added to shopping list",
-      description: `${product.name} has been added to your shopping list.`,
+      description: `${product.name} from ${store} has been added to your shopping list.`,
     });
   };
 
@@ -267,15 +282,24 @@ const Product = () => {
                   <p className="font-medium text-green-800">Best Price</p>
                   <p className="text-sm text-green-600">{bestStore.store.name}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-700">
-                    ${(bestStore.sale_price || bestStore.price).toFixed(2)}
-                  </p>
-                  {bestStore.sale_price && (
-                    <p className="text-sm text-gray-500 line-through">
-                      ${bestStore.price.toFixed(2)}
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-green-700">
+                      ${(bestStore.sale_price || bestStore.price).toFixed(2)}
                     </p>
-                  )}
+                    {bestStore.sale_price && (
+                      <p className="text-sm text-gray-500 line-through">
+                        ${bestStore.price.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => handleAddToList(bestStore)}
+                    size="icon"
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -304,15 +328,25 @@ const Product = () => {
                       <span className="text-sm text-red-500">Out of Stock</span>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold">
-                      ${(priceInfo.sale_price || priceInfo.price).toFixed(2)}
-                    </p>
-                    {priceInfo.sale_price && (
-                      <p className="text-sm text-gray-500 line-through">
-                        ${priceInfo.price.toFixed(2)}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-lg font-semibold">
+                        ${(priceInfo.sale_price || priceInfo.price).toFixed(2)}
                       </p>
-                    )}
+                      {priceInfo.sale_price && (
+                        <p className="text-sm text-gray-500 line-through">
+                          ${priceInfo.price.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      onClick={() => handleAddToList(priceInfo)}
+                      size="icon"
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={!priceInfo.in_stock}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -353,11 +387,11 @@ const Product = () => {
         {/* Add to Shopping List */}
         <div className="bg-white rounded-xl p-6 shadow-sm">
           <Button
-            onClick={handleAddToList}
+            onClick={() => handleAddToList()}
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
             <ShoppingCart className="h-5 w-5 mr-2" />
-            Add to Shopping List
+            Add Best Price to Shopping List
           </Button>
         </div>
       </div>
