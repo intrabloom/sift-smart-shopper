@@ -12,7 +12,9 @@ const Index = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -46,7 +48,38 @@ const Index = () => {
           navigate("/home");
         }
       } else {
-        const { error } = await signUp(email, password, displayName);
+        // Validation for signup
+        if (password !== confirmPassword) {
+          toast({
+            title: "Password mismatch",
+            description: "Passwords do not match. Please try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          toast({
+            title: "Password too short",
+            description: "Password must be at least 6 characters long.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (!phoneNumber.trim()) {
+          toast({
+            title: "Phone number required",
+            description: "Please enter your phone number.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signUp(email, password, displayName, phoneNumber);
         if (error) {
           toast({
             title: "Signup failed",
@@ -104,6 +137,7 @@ const Index = () => {
                   onChange={(e) => setDisplayName(e.target.value)}
                   required={!isLogin}
                   className="mt-1"
+                  placeholder="Enter your display name"
                 />
               </div>
             )}
@@ -117,8 +151,24 @@ const Index = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="mt-1"
+                placeholder="Enter your email"
               />
             </div>
+
+            {!isLogin && (
+              <div>
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required={!isLogin}
+                  className="mt-1"
+                  placeholder="Enter your phone number"
+                />
+              </div>
+            )}
             
             <div>
               <Label htmlFor="password">Password</Label>
@@ -129,8 +179,24 @@ const Index = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="mt-1"
+                placeholder="Enter your password"
               />
             </div>
+
+            {!isLogin && (
+              <div>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required={!isLogin}
+                  className="mt-1"
+                  placeholder="Confirm your password"
+                />
+              </div>
+            )}
           </div>
 
           <Button
