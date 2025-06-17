@@ -59,15 +59,21 @@ export const useStoreRoster = () => {
   };
 
   const addStoreToRoster = async (storeId: string) => {
-    if (!user) return;
+    if (!user) return false;
 
     try {
+      // Get current roster count for ordering
+      const { count } = await supabase
+        .from('user_store_roster')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
       const { error } = await supabase
         .from('user_store_roster')
         .insert({
           user_id: user.id,
           store_id: storeId,
-          preference_order: roster.length
+          preference_order: count || 0
         });
 
       if (error) throw error;
@@ -95,6 +101,22 @@ export const useStoreRoster = () => {
     }
   };
 
+  const updateStoreOrder = async (rosterId: string, newOrder: number) => {
+    try {
+      const { error } = await supabase
+        .from('user_store_roster')
+        .update({ preference_order: newOrder })
+        .eq('id', rosterId);
+
+      if (error) throw error;
+      await fetchRoster();
+      return true;
+    } catch (err) {
+      console.error('Error updating store order:', err);
+      return false;
+    }
+  };
+
   const isStoreInRoster = (storeId: string): boolean => {
     return roster.some(item => item.store_id === storeId);
   };
@@ -110,6 +132,7 @@ export const useStoreRoster = () => {
     loading,
     addStoreToRoster,
     removeStoreFromRoster,
+    updateStoreOrder,
     isStoreInRoster,
     refetchRoster: fetchRoster
   };

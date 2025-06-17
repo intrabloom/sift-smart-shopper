@@ -38,10 +38,16 @@ const Stores = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/home')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-semibold">Find Stores</h1>
             <p className="text-sm text-gray-500">Discover grocery stores near you</p>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/store-roster')}
+          >
+            My Roster
+          </Button>
         </div>
       </div>
 

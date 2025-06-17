@@ -83,26 +83,28 @@ export const useLocation = () => {
     });
   };
 
-  // Geocode address to coordinates
+  // Geocode address to coordinates (mock implementation)
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number }> => {
-    // This is a mock implementation - in production you'd use a real geocoding service
-    // For now, return Springfield, IL coordinates as default
-    return { lat: 39.7817, lng: -89.6501 };
+    // Mock implementation - in production use Google Maps API or similar
+    const coordinates = {
+      'Springfield, IL': { lat: 39.7817, lng: -89.6501 },
+      'Chicago, IL': { lat: 41.8781, lng: -87.6298 },
+      'Peoria, IL': { lat: 40.6936, lng: -89.5890 }
+    };
+    
+    const key = Object.keys(coordinates).find(key => 
+      address.toLowerCase().includes(key.toLowerCase())
+    );
+    
+    return key ? coordinates[key as keyof typeof coordinates] : { lat: 39.7817, lng: -89.6501 };
   };
 
   // Find stores near a location
   const findStoresNear = async (lat: number, lng: number, radiusMiles: number = 25) => {
     setLoading(true);
+    setError(null);
+    
     try {
-      const { data, error } = await supabase.rpc('calculate_distance', {
-        lat1: lat,
-        lon1: lng,
-        lat2: lat,
-        lon2: lng
-      });
-
-      // Since we can't easily do distance calculations in the query without PostGIS,
-      // we'll fetch all stores and calculate distance on the frontend
       const { data: storesData, error: storesError } = await supabase
         .from('stores')
         .select('*');
@@ -111,7 +113,12 @@ export const useLocation = () => {
 
       // Calculate distances and filter
       const storesWithDistance = (storesData || []).map((store: any) => {
-        const distance = calculateDistance(lat, lng, parseFloat(store.latitude), parseFloat(store.longitude));
+        const distance = calculateDistance(
+          lat, 
+          lng, 
+          parseFloat(store.latitude), 
+          parseFloat(store.longitude)
+        );
         return { ...store, distance };
       }).filter(store => store.distance <= radiusMiles)
         .sort((a, b) => a.distance - b.distance);
@@ -120,6 +127,7 @@ export const useLocation = () => {
     } catch (err) {
       console.error('Error finding stores:', err);
       setError('Failed to find stores');
+      setStores([]);
     } finally {
       setLoading(false);
     }
@@ -141,9 +149,17 @@ export const useLocation = () => {
 
   // Save a new location
   const saveLocation = async (location: Omit<UserLocation, 'id'>) => {
-    if (!user) return;
+    if (!user) return null;
 
     try {
+      // If this is being set as primary, update existing primary locations
+      if (location.is_primary) {
+        await supabase
+          .from('user_locations')
+          .update({ is_primary: false })
+          .eq('user_id', user.id);
+      }
+
       const { data, error } = await supabase
         .from('user_locations')
         .insert({ ...location, user_id: user.id })
@@ -156,6 +172,25 @@ export const useLocation = () => {
     } catch (err) {
       console.error('Error saving location:', err);
       setError('Failed to save location');
+      return null;
+    }
+  };
+
+  // Delete a location
+  const deleteLocation = async (locationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_locations')
+        .delete()
+        .eq('id', locationId);
+
+      if (error) throw error;
+      await fetchUserLocations();
+      return true;
+    } catch (err) {
+      console.error('Error deleting location:', err);
+      setError('Failed to delete location');
+      return false;
     }
   };
 
@@ -175,6 +210,7 @@ export const useLocation = () => {
     geocodeAddress,
     findStoresNear,
     saveLocation,
+    deleteLocation,
     refetchLocations: fetchUserLocations
   };
 };
