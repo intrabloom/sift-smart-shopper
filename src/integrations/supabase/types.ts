@@ -328,7 +328,9 @@ export type Database = {
     }
     Functions: {
       calculate_distance: {
-        Args: { lat1: number; lon1: number; lat2: number; lon2: number }
+        Args:
+          | { lat1: number; lon1: number; lat2: number; lon2: number }
+          | { lat1: number; lon1: number; lat2: number; lon2: number }
         Returns: number
       }
     }

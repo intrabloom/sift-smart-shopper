@@ -116,8 +116,8 @@ export const useLocation = () => {
         const distance = calculateDistance(
           lat, 
           lng, 
-          parseFloat(store.latitude), 
-          parseFloat(store.longitude)
+          store.latitude, 
+          store.longitude
         );
         return { ...store, distance };
       }).filter(store => store.distance <= radiusMiles)
