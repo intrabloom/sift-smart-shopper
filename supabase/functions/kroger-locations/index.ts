@@ -1,4 +1,5 @@
 
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
 const corsHeaders = {
@@ -76,14 +77,15 @@ Deno.serve(async (req) => {
 
     // Transform and insert locations into database
     const stores = locations.map(location => {
-      // Clean up store name by removing "Kroger " prefix
+      // Clean up store name - only remove "Kroger " if it appears to be duplicated
       let cleanName = location.name;
-      if (cleanName.startsWith('Kroger ')) {
-        cleanName = cleanName.substring(7); // Remove "Kroger " (7 characters)
-        
-        // If the result is empty after removing "Kroger ", use "Kroger"
-        if (cleanName.trim() === '') {
-          cleanName = 'Kroger';
+      
+      // Check if the name starts with "Kroger Kroger" or "Kroger Ralphs" etc (indicating duplication)
+      if (cleanName.startsWith('Kroger ') && !cleanName.startsWith('Kroger -')) {
+        const afterKroger = cleanName.substring(7); // Get everything after "Kroger "
+        // Only remove the prefix if what follows doesn't start with a dash (indicating it's not "Kroger - Location")
+        if (!afterKroger.startsWith('-') && afterKroger.trim() !== '') {
+          cleanName = afterKroger;
         }
       }
 
