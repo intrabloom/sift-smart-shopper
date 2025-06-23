@@ -33,6 +33,7 @@ serve(async (req) => {
     console.log('Auth response status:', authResponse.status);
 
     if (authResponse.error) {
+      console.error('Auth error:', authResponse.error);
       throw new Error(`Failed to get Kroger access token: ${authResponse.error.message}`);
     }
 
@@ -57,15 +58,22 @@ serve(async (req) => {
     });
 
     console.log('Products response status:', productsResponse.status);
+    console.log('Products response headers:', Object.fromEntries(productsResponse.headers.entries()));
 
     if (!productsResponse.ok) {
       const errorText = await productsResponse.text();
       console.error('Kroger products API error response:', errorText);
-      throw new Error(`Kroger products API error: ${productsResponse.status}`);
+      throw new Error(`Kroger products API error: ${productsResponse.status} - ${errorText}`);
     }
 
     const productsData = await productsResponse.json();
+    console.log('Raw Kroger API response:', JSON.stringify(productsData, null, 2));
     console.log(`Found ${productsData.data?.length || 0} Kroger products`);
+    
+    // Log some sample data if available
+    if (productsData.data && productsData.data.length > 0) {
+      console.log('Sample product:', JSON.stringify(productsData.data[0], null, 2));
+    }
     
     // Transform Kroger products to our format
     const transformedProducts = productsData.data?.map((product: any) => ({
@@ -89,11 +97,19 @@ serve(async (req) => {
       }
     })) || [];
 
+    console.log('Transformed products:', JSON.stringify(transformedProducts, null, 2));
+
     return new Response(
       JSON.stringify({ 
         products: transformedProducts,
         count: transformedProducts.length,
-        source: 'kroger'
+        source: 'kroger',
+        debug: {
+          query: query,
+          locationId: locationId,
+          searchUrl: searchUrl,
+          rawResponseCount: productsData.data?.length || 0
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -103,8 +119,12 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in kroger-products:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        stack: error.stack
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
