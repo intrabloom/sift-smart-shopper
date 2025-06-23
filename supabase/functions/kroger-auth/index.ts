@@ -28,8 +28,12 @@ serve(async (req) => {
     // Log the credentials being used (safely)
     console.log('Using Client ID:', clientId?.substring(0, 8) + '...');
 
+    // Use certification environment endpoint for Kroger API
+    const tokenUrl = 'https://api-ce.kroger.com/v1/connect/oauth2/token';
+    console.log('Using Kroger certification environment:', tokenUrl);
+
     // Get OAuth token from Kroger
-    const tokenResponse = await fetch('https://api.kroger.com/v1/connect/oauth2/token', {
+    const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

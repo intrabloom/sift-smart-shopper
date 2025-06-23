@@ -56,17 +56,17 @@ serve(async (req) => {
     
     console.log('Got Kroger access token successfully');
 
-    // Search for Kroger locations
+    // Search for Kroger locations using certification environment
     console.log('Calling Kroger locations API...');
-    const locationsResponse = await fetch(
-      `https://api.kroger.com/v1/locations?filter.lat.near=${lat}&filter.lon.near=${lng}&filter.radiusInMiles=${radius}&filter.limit=50`,
-      {
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-          'Accept': 'application/json'
-        }
+    const locationsUrl = `https://api-ce.kroger.com/v1/locations?filter.lat.near=${lat}&filter.lon.near=${lng}&filter.radiusInMiles=${radius}&filter.limit=50`;
+    console.log('Using certification endpoint:', locationsUrl);
+    
+    const locationsResponse = await fetch(locationsUrl, {
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Accept': 'application/json'
       }
-    );
+    });
 
     console.log('Locations response status:', locationsResponse.status);
 
