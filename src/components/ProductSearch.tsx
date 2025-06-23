@@ -1,10 +1,12 @@
-
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Loader2 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
+import { useKrogerIntegration } from '@/hooks/useKrogerIntegration';
 import { useToast } from '@/hooks/use-toast';
+import KrogerProductSearch from './KrogerProductSearch';
 
 interface Product {
   id: string;
@@ -13,17 +15,23 @@ interface Product {
   brand?: string;
   size?: string;
   category?: string;
+  image_url?: string;
+  price?: number;
+  sale_price?: number;
 }
 
 interface ProductSearchProps {
   onProductSelect: (product: Product) => void;
+  krogerLocationId?: string;
 }
 
-const ProductSearch = ({ onProductSelect }: ProductSearchProps) => {
+const ProductSearch = ({ onProductSelect, krogerLocationId }: ProductSearchProps) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
   const { searchProducts } = useProducts();
+  const { searchKrogerProducts } = useKrogerIntegration();
   const { toast } = useToast();
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -32,10 +40,19 @@ const ProductSearch = ({ onProductSelect }: ProductSearchProps) => {
 
     setLoading(true);
     try {
-      const products = await searchProducts(query);
-      setResults(products);
+      if (activeTab === 'all' || activeTab === 'local') {
+        const localProducts = await searchProducts(query);
+        
+        if (activeTab === 'all') {
+          // Also search Kroger if searching all
+          const krogerProducts = await searchKrogerProducts(query, krogerLocationId);
+          setResults([...localProducts, ...krogerProducts]);
+        } else {
+          setResults(localProducts);
+        }
+      }
       
-      if (products.length === 0) {
+      if (results.length === 0) {
         toast({
           title: "No results found",
           description: "Try searching with different keywords",
@@ -55,62 +72,144 @@ const ProductSearch = ({ onProductSelect }: ProductSearchProps) => {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <Input
-          placeholder="Search for products..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="flex-1"
-        />
-        <Button type="submit" disabled={loading || !query.trim()}>
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Search className="h-4 w-4" />
-          )}
-        </Button>
-      </form>
-
-      {results.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border">
-          <div className="p-4 border-b">
-            <h3 className="font-semibold">Search Results ({results.length})</h3>
-          </div>
-          <div className="divide-y">
-            {results.map((product) => (
-              <div
-                key={product.id}
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => onProductSelect(product)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{product.name}</h4>
-                    {product.brand && (
-                      <p className="text-sm text-gray-600">{product.brand}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-1">
-                      {product.size && (
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                          {product.size}
-                        </span>
-                      )}
-                      {product.category && (
-                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                          {product.category}
-                        </span>
-                      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="all">All Sources</TabsTrigger>
+          <TabsTrigger value="local">Local Database</TabsTrigger>
+          <TabsTrigger value="kroger">Kroger</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="all" className="space-y-4">
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <Input
+              placeholder="Search all products..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={loading || !query.trim()}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </Button>
+          </form>
+          
+          {results.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border">
+              <div className="p-4 border-b">
+                <h3 className="font-semibold">All Results ({results.length})</h3>
+              </div>
+              <div className="divide-y max-h-96 overflow-y-auto">
+                {results.map((product) => (
+                  <div
+                    key={product.id}
+                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => onProductSelect(product)}
+                  >
+                    
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{product.name}</h4>
+                        {product.brand && (
+                          <p className="text-sm text-gray-600">{product.brand}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-1">
+                          {product.size && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                              {product.size}
+                            </span>
+                          )}
+                          {product.category && (
+                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                              {product.category}
+                            </span>
+                          )}
+                          {product.id.startsWith('kroger-') && (
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                              Kroger
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        View Details
+                      </Button>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    View Details
-                  </Button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="local" className="space-y-4">
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <Input
+              placeholder="Search local database..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={loading || !query.trim()}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </Button>
+          </form>
+          
+          {results.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border">
+              <div className="p-4 border-b">
+                <h3 className="font-semibold">Search Results ({results.length})</h3>
+              </div>
+              <div className="divide-y">
+                {results.map((product) => (
+                  <div
+                    key={product.id}
+                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => onProductSelect(product)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{product.name}</h4>
+                        {product.brand && (
+                          <p className="text-sm text-gray-600">{product.brand}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-1">
+                          {product.size && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                              {product.size}
+                            </span>
+                          )}
+                          {product.category && (
+                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                              {product.category}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="kroger">
+          <KrogerProductSearch 
+            onProductSelect={onProductSelect}
+            locationId={krogerLocationId}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
