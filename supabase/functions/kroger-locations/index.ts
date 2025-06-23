@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
 const corsHeaders = {
@@ -79,10 +80,11 @@ Deno.serve(async (req) => {
       let cleanName = location.name;
       if (cleanName.startsWith('Kroger ')) {
         cleanName = cleanName.substring(7); // Remove "Kroger " (7 characters)
-      }
-      // If the name is just "Kroger", keep it as is
-      if (cleanName.trim() === '') {
-        cleanName = 'Kroger';
+        
+        // If the result is empty after removing "Kroger ", use "Kroger"
+        if (cleanName.trim() === '') {
+          cleanName = 'Kroger';
+        }
       }
 
       return {
