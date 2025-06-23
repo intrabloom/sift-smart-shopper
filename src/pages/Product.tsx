@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { ArrowLeft, ShoppingCart, MapPin, Loader2, AlertCircle, Plus } from "luc
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProducts } from "@/hooks/useProducts";
+import { useKrogerIntegration } from "@/hooks/useKrogerIntegration";
 import { useShoppingList } from "@/hooks/useShoppingList";
 
 interface Product {
@@ -18,6 +20,9 @@ interface Product {
   ingredients?: string;
   nutrition_facts?: any;
   allergens?: string[];
+  price?: number;
+  sale_price?: number;
+  kroger_data?: any;
 }
 
 interface ProductPrice {
@@ -40,6 +45,7 @@ const Product = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { getProductByBarcode, getProductPrices } = useProducts();
+  const { searchKrogerProducts } = useKrogerIntegration();
   const { addItem } = useShoppingList();
   
   const [product, setProduct] = useState<Product | null>(null);
@@ -47,6 +53,7 @@ const Product = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isKrogerProduct, setIsKrogerProduct] = useState(false);
 
   const loadProduct = async (upc: string) => {
     if (retryCount >= 3) {
@@ -59,27 +66,41 @@ const Product = () => {
       setError(null);
       console.log('Loading product with UPC:', upc);
       
-      const productData = await getProductByBarcode(upc);
+      // First try to get from local database
+      const localProduct = await getProductByBarcode(upc);
       
-      if (!productData) {
-        setError("Product not found. This might be a new product not yet in our database.");
-        setPrices([]);
-        setLoading(false);
-        return;
-      }
+      if (localProduct) {
+        console.log('Product found in local database:', localProduct);
+        setProduct(localProduct);
+        setIsKrogerProduct(false);
 
-      console.log('Product found:', productData);
-      setProduct(productData);
-
-      // Load prices
-      try {
-        const priceData = await getProductPrices(productData.id);
-        console.log('Prices loaded:', priceData);
-        setPrices(priceData);
-      } catch (priceError) {
-        console.error('Error loading prices:', priceError);
-        // Don't fail the whole component if prices fail to load
-        setPrices([]);
+        // Load prices for local products
+        try {
+          const priceData = await getProductPrices(localProduct.id);
+          console.log('Prices loaded:', priceData);
+          setPrices(priceData);
+        } catch (priceError) {
+          console.error('Error loading prices:', priceError);
+          setPrices([]);
+        }
+      } else {
+        // If not found locally, try Kroger API
+        console.log('Product not found locally, searching Kroger...');
+        const krogerProducts = await searchKrogerProducts(upc);
+        
+        if (krogerProducts.length > 0) {
+          const krogerProduct = krogerProducts[0];
+          console.log('Product found in Kroger:', krogerProduct);
+          setProduct(krogerProduct);
+          setIsKrogerProduct(true);
+          
+          // For Kroger products, we don't have separate price data
+          // The pricing is already included in the product data
+          setPrices([]);
+        } else {
+          setError("Product not found. This might be a new product not yet in our database or Kroger's catalog.");
+          setPrices([]);
+        }
       }
 
       setLoading(false);
@@ -110,14 +131,24 @@ const Product = () => {
   const handleAddToList = (storeInfo?: ProductPrice) => {
     if (!product) return;
     
-    const store = storeInfo ? storeInfo.store.name : (bestStore?.store.name || 'Unknown Store');
-    const price = storeInfo ? (storeInfo.sale_price || storeInfo.price) : (bestStore?.sale_price || bestStore?.price || 0);
+    let store, price;
+    
+    if (isKrogerProduct) {
+      // For Kroger products, use Kroger as store and product's price
+      store = 'Kroger';
+      price = product.sale_price || product.price || 0;
+    } else {
+      // For local products, use the best store or provided store info
+      const bestStore = prices.length > 0 ? prices.find(p => (p.sale_price || p.price) === Math.min(...prices.map(pr => pr.sale_price || pr.price))) : null;
+      store = storeInfo ? storeInfo.store.name : (bestStore?.store.name || 'Unknown Store');
+      price = storeInfo ? (storeInfo.sale_price || storeInfo.price) : (bestStore?.sale_price || bestStore?.price || 0);
+    }
     
     const item = {
       productId: product.id,
       productName: product.name,
       store: store,
-      storeId: storeInfo?.store.id || bestStore?.store.id,
+      storeId: storeInfo?.store.id || (isKrogerProduct ? 'kroger' : undefined),
       price: price
     };
     
@@ -270,27 +301,52 @@ const Product = () => {
                     {product.category}
                   </span>
                 )}
+                {isKrogerProduct && (
+                  <span className="text-sm bg-red-100 text-red-700 px-2 py-1 rounded">
+                    Kroger
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-500 mt-2">UPC: {product.upc}</p>
             </div>
           </div>
 
-          {bestStore && (
+          {/* Pricing Section */}
+          {(isKrogerProduct && (product.price || product.sale_price)) || bestStore ? (
             <div className="mt-4 p-4 bg-green-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-green-800">Best Price</p>
-                  <p className="text-sm text-green-600">{bestStore.store.name}</p>
+                  <p className="font-medium text-green-800">
+                    {isKrogerProduct ? 'Kroger Price' : 'Best Price'}
+                  </p>
+                  <p className="text-sm text-green-600">
+                    {isKrogerProduct ? 'Kroger' : bestStore?.store.name}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-green-700">
-                      ${(bestStore.sale_price || bestStore.price).toFixed(2)}
-                    </p>
-                    {bestStore.sale_price && (
-                      <p className="text-sm text-gray-500 line-through">
-                        ${bestStore.price.toFixed(2)}
-                      </p>
+                    {isKrogerProduct ? (
+                      <>
+                        <p className="text-2xl font-bold text-green-700">
+                          ${(product.sale_price || product.price)?.toFixed(2)}
+                        </p>
+                        {product.sale_price && product.price && (
+                          <p className="text-sm text-gray-500 line-through">
+                            ${product.price.toFixed(2)}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-2xl font-bold text-green-700">
+                          ${(bestStore!.sale_price || bestStore!.price).toFixed(2)}
+                        </p>
+                        {bestStore!.sale_price && (
+                          <p className="text-sm text-gray-500 line-through">
+                            ${bestStore!.price.toFixed(2)}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                   <Button
@@ -303,11 +359,11 @@ const Product = () => {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Store Prices */}
-        {prices.length > 0 && (
+        {/* Store Prices for local products */}
+        {!isKrogerProduct && prices.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm">
             <div className="p-4 border-b">
               <h2 className="text-lg font-semibold">Available At ({prices.length} stores)</h2>
@@ -391,7 +447,7 @@ const Product = () => {
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
             <ShoppingCart className="h-5 w-5 mr-2" />
-            Add Best Price to Shopping List
+            Add to Shopping List
           </Button>
         </div>
       </div>
