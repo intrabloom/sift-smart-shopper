@@ -40,12 +40,16 @@ serve(async (req) => {
     const { access_token } = authResponse.data;
     console.log('Got Kroger access token successfully');
 
-    // Build search URL using certification environment
+    // Build search URL using certification environment with enhanced parameters
     let searchUrl = `https://api-ce.kroger.com/v1/products?filter.term=${encodeURIComponent(query)}&filter.limit=20`;
     
+    // Add location filter if provided for pricing data
     if (locationId) {
       searchUrl += `&filter.locationId=${locationId}`;
     }
+
+    // Add fulfillment filters to get more complete data
+    searchUrl += '&filter.fulfillment=ais,crs,dug,sth';
 
     console.log('Using Kroger certification endpoint:', searchUrl);
 
@@ -75,27 +79,53 @@ serve(async (req) => {
       console.log('Sample product:', JSON.stringify(productsData.data[0], null, 2));
     }
     
-    // Transform Kroger products to our format
-    const transformedProducts = productsData.data?.map((product: any) => ({
-      id: `kroger-${product.productId}`,
-      upc: product.upc || product.productId,
-      name: product.description || product.brand?.name || 'Unknown Product',
-      brand: product.brand?.name || null,
-      size: product.items?.[0]?.size || null,
-      category: product.categories?.[0] || null,
-      image_url: product.images?.[0]?.sizes?.find((img: any) => 
-        img.size === 'large' || img.size === 'medium'
-      )?.url || product.images?.[0]?.sizes?.[0]?.url,
-      price: product.items?.[0]?.price?.regular || null,
-      sale_price: product.items?.[0]?.price?.promo || null,
-      kroger_data: {
-        productId: product.productId,
-        locationId: locationId,
-        temperature: product.temperature,
-        categories: product.categories,
-        tags: product.tags
+    // Transform Kroger products to our format with enhanced data extraction
+    const transformedProducts = productsData.data?.map((product: any) => {
+      // Extract the first item's pricing data if available
+      const firstItem = product.items?.[0];
+      const pricing = firstItem?.price;
+      const nationalPricing = firstItem?.nationalPrice;
+      
+      // Get the best available image
+      const featuredImage = product.images?.find((img: any) => img.featured);
+      const anyImage = product.images?.[0];
+      const imageToUse = featuredImage || anyImage;
+      
+      let imageUrl = null;
+      if (imageToUse?.sizes && Array.isArray(imageToUse.sizes)) {
+        // Prefer large or medium size images
+        const preferredImage = imageToUse.sizes.find((size: any) => 
+          size.size === 'large' || size.size === 'medium'
+        );
+        imageUrl = preferredImage?.url || imageToUse.sizes[0]?.url;
       }
-    })) || [];
+
+      return {
+        id: `kroger-${product.productId}`,
+        upc: product.upc || product.productId,
+        name: product.description || product.brand?.name || 'Unknown Product',
+        brand: product.brand?.name || null,
+        size: firstItem?.size || null,
+        category: product.categories?.[0] || null,
+        image_url: imageUrl,
+        // Extract pricing data when available
+        price: pricing?.regular || nationalPricing?.regular || null,
+        sale_price: pricing?.promo || nationalPricing?.promo || null,
+        // Store additional Kroger-specific data
+        kroger_data: {
+          productId: product.productId,
+          locationId: locationId,
+          temperature: product.temperature,
+          categories: product.categories,
+          tags: product.tags,
+          fulfillment: firstItem?.fulfillment,
+          inventory: firstItem?.inventory,
+          aisleLocations: product.aisleLocations,
+          countryOrigin: product.countryOrigin,
+          itemInformation: product.itemInformation
+        }
+      };
+    }) || [];
 
     console.log('Transformed products:', JSON.stringify(transformedProducts, null, 2));
 
@@ -104,11 +134,18 @@ serve(async (req) => {
         products: transformedProducts,
         count: transformedProducts.length,
         source: 'kroger',
+        locationId: locationId,
+        hasLocationData: !!locationId,
         debug: {
           query: query,
           locationId: locationId,
           searchUrl: searchUrl,
-          rawResponseCount: productsData.data?.length || 0
+          rawResponseCount: productsData.data?.length || 0,
+          sampleProduct: productsData.data?.[0] ? {
+            hasPrice: !!productsData.data[0].items?.[0]?.price,
+            hasNationalPrice: !!productsData.data[0].items?.[0]?.nationalPrice,
+            fulfillment: productsData.data[0].items?.[0]?.fulfillment
+          } : null
         }
       }),
       { 

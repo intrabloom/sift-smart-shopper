@@ -1,8 +1,9 @@
+
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, MapPin, DollarSign } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useKrogerIntegration } from '@/hooks/useKrogerIntegration';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +19,7 @@ interface Product {
   image_url?: string;
   price?: number;
   sale_price?: number;
+  kroger_data?: any;
 }
 
 interface ProductSearchProps {
@@ -76,7 +78,12 @@ const ProductSearch = ({ onProductSelect, krogerLocationId }: ProductSearchProps
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All Sources</TabsTrigger>
           <TabsTrigger value="local">Local Database</TabsTrigger>
-          <TabsTrigger value="kroger">Kroger</TabsTrigger>
+          <TabsTrigger value="kroger">
+            Kroger
+            {krogerLocationId && (
+              <MapPin className="ml-1 h-3 w-3 text-green-600" />
+            )}
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="space-y-4">
@@ -96,6 +103,13 @@ const ProductSearch = ({ onProductSelect, krogerLocationId }: ProductSearchProps
             </Button>
           </form>
           
+          {krogerLocationId && (
+            <div className="text-sm text-gray-600 bg-green-50 p-2 rounded flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Location-specific pricing available for Kroger products
+            </div>
+          )}
+          
           {results.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm border">
               <div className="p-4 border-b">
@@ -108,8 +122,14 @@ const ProductSearch = ({ onProductSelect, krogerLocationId }: ProductSearchProps
                     className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() => onProductSelect(product)}
                   >
-                    
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      {product.image_url && (
+                        <img 
+                          src={product.image_url} 
+                          alt={product.name}
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                      )}
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900">{product.name}</h4>
                         {product.brand && (
@@ -131,7 +151,27 @@ const ProductSearch = ({ onProductSelect, krogerLocationId }: ProductSearchProps
                               Kroger
                             </span>
                           )}
+                          {(product.price || product.sale_price) && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded flex items-center gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              Pricing Available
+                            </span>
+                          )}
                         </div>
+                        {(product.price || product.sale_price) && (
+                          <div className="mt-2 flex items-center gap-2">
+                            {product.sale_price && (
+                              <span className="text-sm font-medium text-red-600">
+                                ${product.sale_price.toFixed(2)}
+                              </span>
+                            )}
+                            {product.price && (
+                              <span className={`text-sm ${product.sale_price ? 'line-through text-gray-500' : 'font-medium text-gray-900'}`}>
+                                ${product.price.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <Button variant="outline" size="sm">
                         View Details
