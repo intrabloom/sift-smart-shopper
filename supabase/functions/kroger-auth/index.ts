@@ -16,9 +16,17 @@ serve(async (req) => {
     const clientId = Deno.env.get('KROGER_CLIENT_ID');
     const clientSecret = Deno.env.get('KROGER_CLIENT_SECRET');
 
+    console.log('Checking Kroger credentials...');
+    console.log('Client ID exists:', !!clientId);
+    console.log('Client Secret exists:', !!clientSecret);
+
     if (!clientId || !clientSecret) {
+      console.error('Missing Kroger API credentials');
       throw new Error('Kroger API credentials not configured');
     }
+
+    // Log the credentials being used (safely)
+    console.log('Using Client ID:', clientId?.substring(0, 8) + '...');
 
     // Get OAuth token from Kroger
     const tokenResponse = await fetch('https://api.kroger.com/v1/connect/oauth2/token', {
@@ -30,13 +38,24 @@ serve(async (req) => {
       body: 'grant_type=client_credentials&scope=product.compact'
     });
 
+    console.log('Token response status:', tokenResponse.status);
+    
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Kroger auth error:', errorText);
-      throw new Error(`Failed to authenticate with Kroger: ${tokenResponse.status}`);
+      console.error('Kroger auth error response:', errorText);
+      
+      // Try to parse the error response for more details
+      try {
+        const errorData = JSON.parse(errorText);
+        console.error('Parsed error:', errorData);
+        throw new Error(`Kroger authentication failed: ${errorData.error_description || errorData.error || 'Unknown error'}`);
+      } catch (parseError) {
+        throw new Error(`Kroger authentication failed with status ${tokenResponse.status}: ${errorText}`);
+      }
     }
 
     const tokenData = await tokenResponse.json();
+    console.log('Successfully obtained Kroger access token');
     
     return new Response(
       JSON.stringify({ 

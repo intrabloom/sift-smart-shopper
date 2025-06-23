@@ -22,23 +22,42 @@ serve(async (req) => {
 
     console.log('Searching for Kroger locations near:', { lat, lng, radius });
 
-    // Get Kroger access token
+    // Get Kroger access token with better error handling
+    console.log('Calling kroger-auth function...');
     const authResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/kroger-auth`, {
+      method: 'POST',
       headers: {
         'Authorization': req.headers.get('Authorization') || '',
-        'apikey': Deno.env.get('SUPABASE_ANON_KEY') || ''
+        'apikey': Deno.env.get('SUPABASE_ANON_KEY') || '',
+        'Content-Type': 'application/json'
       }
     });
 
+    console.log('Auth response status:', authResponse.status);
+
     if (!authResponse.ok) {
-      console.error('Auth response not ok:', authResponse.status);
-      throw new Error('Failed to authenticate with Kroger');
+      const errorText = await authResponse.text();
+      console.error('Auth function error:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(`Kroger authentication failed: ${errorData.error}`);
+      } catch (parseError) {
+        throw new Error(`Kroger authentication failed with status ${authResponse.status}`);
+      }
     }
 
-    const { access_token } = await authResponse.json();
-    console.log('Got Kroger access token');
+    const authData = await authResponse.json();
+    const { access_token } = authData;
+    
+    if (!access_token) {
+      throw new Error('No access token received from Kroger auth');
+    }
+    
+    console.log('Got Kroger access token successfully');
 
     // Search for Kroger locations
+    console.log('Calling Kroger locations API...');
     const locationsResponse = await fetch(
       `https://api.kroger.com/v1/locations?filter.lat.near=${lat}&filter.lon.near=${lng}&filter.radiusInMiles=${radius}&filter.limit=50`,
       {
@@ -49,11 +68,12 @@ serve(async (req) => {
       }
     );
 
+    console.log('Locations response status:', locationsResponse.status);
+
     if (!locationsResponse.ok) {
-      console.error('Locations response not ok:', locationsResponse.status);
       const errorText = await locationsResponse.text();
-      console.error('Locations error response:', errorText);
-      throw new Error(`Kroger locations API error: ${locationsResponse.status}`);
+      console.error('Locations API error:', errorText);
+      throw new Error(`Kroger locations API error: ${locationsResponse.status} - ${errorText}`);
     }
 
     const locationsData = await locationsResponse.json();
