@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,30 +16,37 @@ serve(async (req) => {
   try {
     const { query, locationId } = await req.json();
     
+    console.log(`Searching Kroger products for query: ${query}${locationId ? `, locationId: ${locationId}` : ''}`);
+    
     if (!query) {
       throw new Error('Search query is required');
     }
 
-    // Get Kroger access token
-    const authResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/kroger-auth`, {
-      headers: {
-        'Authorization': req.headers.get('Authorization') || '',
-        'apikey': Deno.env.get('SUPABASE_ANON_KEY') || ''
-      }
-    });
+    // Get Kroger access token using Supabase client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    if (!authResponse.ok) {
-      throw new Error('Failed to authenticate with Kroger');
+    console.log('Calling kroger-auth function...');
+    const authResponse = await supabase.functions.invoke('kroger-auth');
+    console.log('Auth response status:', authResponse.status);
+
+    if (authResponse.error) {
+      throw new Error(`Failed to get Kroger access token: ${authResponse.error.message}`);
     }
 
-    const { access_token } = await authResponse.json();
+    const { access_token } = authResponse.data;
+    console.log('Got Kroger access token successfully');
 
-    // Build search URL
-    let searchUrl = `https://api.kroger.com/v1/products?filter.term=${encodeURIComponent(query)}&filter.limit=20`;
+    // Build search URL using certification environment
+    let searchUrl = `https://api-ce.kroger.com/v1/products?filter.term=${encodeURIComponent(query)}&filter.limit=20`;
     
     if (locationId) {
       searchUrl += `&filter.locationId=${locationId}`;
     }
+
+    console.log('Using Kroger certification endpoint:', searchUrl);
 
     // Search Kroger products
     const productsResponse = await fetch(searchUrl, {
@@ -48,11 +56,16 @@ serve(async (req) => {
       }
     });
 
+    console.log('Products response status:', productsResponse.status);
+
     if (!productsResponse.ok) {
+      const errorText = await productsResponse.text();
+      console.error('Kroger products API error response:', errorText);
       throw new Error(`Kroger products API error: ${productsResponse.status}`);
     }
 
     const productsData = await productsResponse.json();
+    console.log(`Found ${productsData.data?.length || 0} Kroger products`);
     
     // Transform Kroger products to our format
     const transformedProducts = productsData.data?.map((product: any) => ({
