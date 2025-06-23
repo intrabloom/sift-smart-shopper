@@ -100,6 +100,27 @@ serve(async (req) => {
         imageUrl = preferredImage?.url || imageToUse.sizes[0]?.url;
       }
 
+      // Extract pricing with better fallback logic
+      let regularPrice = null;
+      let promoPrice = null;
+
+      if (pricing) {
+        regularPrice = pricing.regular;
+        promoPrice = pricing.promo;
+      } else if (nationalPricing) {
+        regularPrice = nationalPricing.regular;
+        promoPrice = nationalPricing.promo;
+      }
+
+      console.log(`Product ${product.productId} pricing:`, {
+        hasLocalPrice: !!pricing,
+        hasNationalPrice: !!nationalPricing,
+        regularPrice,
+        promoPrice,
+        rawPricing: pricing,
+        rawNationalPricing: nationalPricing
+      });
+
       return {
         id: `kroger-${product.productId}`,
         upc: product.upc || product.productId,
@@ -109,9 +130,9 @@ serve(async (req) => {
         category: product.categories?.[0] || null,
         image_url: imageUrl,
         // Extract pricing data when available
-        price: pricing?.regular || nationalPricing?.regular || null,
-        sale_price: pricing?.promo || nationalPricing?.promo || null,
-        // Store additional Kroger-specific data
+        price: regularPrice,
+        sale_price: promoPrice,
+        // Store additional Kroger-specific data with complete pricing info
         kroger_data: {
           productId: product.productId,
           locationId: locationId,
@@ -122,12 +143,19 @@ serve(async (req) => {
           inventory: firstItem?.inventory,
           aisleLocations: product.aisleLocations,
           countryOrigin: product.countryOrigin,
-          itemInformation: product.itemInformation
+          itemInformation: product.itemInformation,
+          items: product.items // Store full items array for complete pricing data
         }
       };
     }) || [];
 
-    console.log('Transformed products:', JSON.stringify(transformedProducts, null, 2));
+    console.log('Transformed products with pricing:', transformedProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      sale_price: p.sale_price,
+      hasPricing: !!(p.price || p.sale_price)
+    })));
 
     return new Response(
       JSON.stringify({ 
@@ -144,7 +172,9 @@ serve(async (req) => {
           sampleProduct: productsData.data?.[0] ? {
             hasPrice: !!productsData.data[0].items?.[0]?.price,
             hasNationalPrice: !!productsData.data[0].items?.[0]?.nationalPrice,
-            fulfillment: productsData.data[0].items?.[0]?.fulfillment
+            fulfillment: productsData.data[0].items?.[0]?.fulfillment,
+            priceData: productsData.data[0].items?.[0]?.price,
+            nationalPriceData: productsData.data[0].items?.[0]?.nationalPrice
           } : null
         }
       }),

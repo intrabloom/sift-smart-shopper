@@ -184,6 +184,35 @@ const Product = () => {
     };
   };
 
+  // Helper function to render pricing with promo/regular styling
+  const renderPrice = (regularPrice: number | null, promoPrice: number | null, label: string = "") => {
+    if (!regularPrice && !promoPrice) return null;
+
+    return (
+      <div className="text-right">
+        {promoPrice ? (
+          <div>
+            <p className="text-2xl font-bold text-green-600">
+              ${promoPrice.toFixed(2)}
+            </p>
+            {regularPrice && (
+              <p className="text-lg text-gray-500 line-through">
+                ${regularPrice.toFixed(2)}
+              </p>
+            )}
+          </div>
+        ) : regularPrice ? (
+          <p className="text-2xl font-bold text-gray-900">
+            ${regularPrice.toFixed(2)}
+          </p>
+        ) : null}
+        {label && (
+          <p className="text-xs text-gray-500 mt-1">{label}</p>
+        )}
+      </div>
+    );
+  };
+
   const krogerPricing = getKrogerPricing();
 
   if (loading) {
@@ -335,8 +364,8 @@ const Product = () => {
               <h2 className="text-lg font-semibold">Kroger Pricing & Availability</h2>
             </div>
             <div className="p-6 space-y-4">
-              {/* Main Pricing */}
-              {(krogerPricing.price || krogerPricing.nationalPrice) && (
+              {/* Store Pricing */}
+              {krogerPricing.price && (
                 <div className="p-4 bg-green-50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
@@ -344,21 +373,7 @@ const Product = () => {
                       <p className="text-sm text-green-600">Location-specific pricing</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        {krogerPricing.price?.promo && (
-                          <p className="text-2xl font-bold text-red-600">
-                            ${krogerPricing.price.promo.toFixed(2)}
-                          </p>
-                        )}
-                        <p className={`text-lg font-semibold ${krogerPricing.price?.promo ? 'line-through text-gray-500' : 'text-green-700'}`}>
-                          ${(krogerPricing.price?.regular || 0).toFixed(2)}
-                        </p>
-                        {krogerPricing.price?.regularPerUnitEstimate && (
-                          <p className="text-xs text-gray-500">
-                            ~${krogerPricing.price.regularPerUnitEstimate.toFixed(2)}/unit
-                          </p>
-                        )}
-                      </div>
+                      {renderPrice(krogerPricing.price.regular, krogerPricing.price.promo)}
                       <Button
                         onClick={() => handleAddToList()}
                         size="icon"
@@ -368,6 +383,13 @@ const Product = () => {
                       </Button>
                     </div>
                   </div>
+                  {krogerPricing.price.regularPerUnitEstimate && (
+                    <div className="mt-2 text-right">
+                      <p className="text-xs text-gray-500">
+                        ~${krogerPricing.price.regularPerUnitEstimate.toFixed(2)}/unit
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -379,22 +401,15 @@ const Product = () => {
                       <p className="font-medium text-blue-800">National Price</p>
                       <p className="text-sm text-blue-600">Standard pricing</p>
                     </div>
-                    <div className="text-right">
-                      {krogerPricing.nationalPrice.promo && (
-                        <p className="text-xl font-bold text-red-600">
-                          ${krogerPricing.nationalPrice.promo.toFixed(2)}
-                        </p>
-                      )}
-                      <p className={`text-lg font-semibold ${krogerPricing.nationalPrice.promo ? 'line-through text-gray-500' : 'text-blue-700'}`}>
-                        ${krogerPricing.nationalPrice.regular.toFixed(2)}
-                      </p>
-                      {krogerPricing.nationalPrice.regularPerUnitEstimate && (
-                        <p className="text-xs text-gray-500">
-                          ~${krogerPricing.nationalPrice.regularPerUnitEstimate.toFixed(2)}/unit
-                        </p>
-                      )}
-                    </div>
+                    {renderPrice(krogerPricing.nationalPrice.regular, krogerPricing.nationalPrice.promo)}
                   </div>
+                  {krogerPricing.nationalPrice.regularPerUnitEstimate && (
+                    <div className="mt-2 text-right">
+                      <p className="text-xs text-gray-500">
+                        ~${krogerPricing.nationalPrice.regularPerUnitEstimate.toFixed(2)}/unit
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -476,16 +491,7 @@ const Product = () => {
                   <p className="text-sm text-green-600">Kroger</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-green-700">
-                      ${(product.sale_price || product.price)?.toFixed(2)}
-                    </p>
-                    {product.sale_price && product.price && (
-                      <p className="text-sm text-gray-500 line-through">
-                        ${product.price.toFixed(2)}
-                      </p>
-                    )}
-                  </div>
+                  {renderPrice(product.price, product.sale_price)}
                   <Button
                     onClick={() => handleAddToList()}
                     size="icon"
@@ -522,16 +528,7 @@ const Product = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-lg font-semibold">
-                        ${(priceInfo.sale_price || priceInfo.price).toFixed(2)}
-                      </p>
-                      {priceInfo.sale_price && (
-                        <p className="text-sm text-gray-500 line-through">
-                          ${priceInfo.price.toFixed(2)}
-                        </p>
-                      )}
-                    </div>
+                    {renderPrice(priceInfo.price, priceInfo.sale_price)}
                     <Button
                       onClick={() => handleAddToList(priceInfo)}
                       size="icon"
