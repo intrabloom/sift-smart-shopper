@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShoppingCart, MapPin, Loader2, AlertCircle, Plus } from "lucide-react";
+import { ArrowLeft, ShoppingCart, MapPin, Loader2, AlertCircle, Plus, Thermometer, Truck, Store, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProducts } from "@/hooks/useProducts";
@@ -170,6 +169,23 @@ const Product = () => {
     }
   };
 
+  // Helper function to get detailed pricing from Kroger data
+  const getKrogerPricing = () => {
+    if (!isKrogerProduct || !product?.kroger_data) return null;
+    
+    const firstItem = product.kroger_data.items?.[0];
+    if (!firstItem) return null;
+    
+    return {
+      price: firstItem.price,
+      nationalPrice: firstItem.nationalPrice,
+      inventory: firstItem.inventory,
+      fulfillment: firstItem.fulfillment
+    };
+  };
+
+  const krogerPricing = getKrogerPricing();
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -310,47 +326,168 @@ const Product = () => {
               <p className="text-sm text-gray-500 mt-2">UPC: {product.upc}</p>
             </div>
           </div>
+        </div>
 
-          {/* Pricing Section */}
-          {(isKrogerProduct && (product.price || product.sale_price)) || bestStore ? (
-            <div className="mt-4 p-4 bg-green-50 rounded-lg">
+        {/* Enhanced Kroger Pricing Section */}
+        {isKrogerProduct && krogerPricing && (
+          <div className="bg-white rounded-xl shadow-sm">
+            <div className="p-4 border-b">
+              <h2 className="text-lg font-semibold">Kroger Pricing & Availability</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Main Pricing */}
+              {(krogerPricing.price || krogerPricing.nationalPrice) && (
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-green-800">Store Price</p>
+                      <p className="text-sm text-green-600">Location-specific pricing</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        {krogerPricing.price?.promo && (
+                          <p className="text-2xl font-bold text-red-600">
+                            ${krogerPricing.price.promo.toFixed(2)}
+                          </p>
+                        )}
+                        <p className={`text-lg font-semibold ${krogerPricing.price?.promo ? 'line-through text-gray-500' : 'text-green-700'}`}>
+                          ${(krogerPricing.price?.regular || 0).toFixed(2)}
+                        </p>
+                        {krogerPricing.price?.regularPerUnitEstimate && (
+                          <p className="text-xs text-gray-500">
+                            ~${krogerPricing.price.regularPerUnitEstimate.toFixed(2)}/unit
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => handleAddToList()}
+                        size="icon"
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* National Pricing */}
+              {krogerPricing.nationalPrice && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-blue-800">National Price</p>
+                      <p className="text-sm text-blue-600">Standard pricing</p>
+                    </div>
+                    <div className="text-right">
+                      {krogerPricing.nationalPrice.promo && (
+                        <p className="text-xl font-bold text-red-600">
+                          ${krogerPricing.nationalPrice.promo.toFixed(2)}
+                        </p>
+                      )}
+                      <p className={`text-lg font-semibold ${krogerPricing.nationalPrice.promo ? 'line-through text-gray-500' : 'text-blue-700'}`}>
+                        ${krogerPricing.nationalPrice.regular.toFixed(2)}
+                      </p>
+                      {krogerPricing.nationalPrice.regularPerUnitEstimate && (
+                        <p className="text-xs text-gray-500">
+                          ~${krogerPricing.nationalPrice.regularPerUnitEstimate.toFixed(2)}/unit
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fulfillment Options */}
+              {krogerPricing.fulfillment && (
+                <div>
+                  <h3 className="font-medium text-gray-700 mb-3">Available Services</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`p-3 rounded-lg border ${krogerPricing.fulfillment.inStore ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <Store className={`h-4 w-4 ${krogerPricing.fulfillment.inStore ? 'text-green-600' : 'text-gray-400'}`} />
+                        <span className={`text-sm font-medium ${krogerPricing.fulfillment.inStore ? 'text-green-700' : 'text-gray-500'}`}>
+                          In-Store
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {krogerPricing.fulfillment.inStore ? 'Available' : 'Not Available'}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-lg border ${krogerPricing.fulfillment.curbside ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <MapPin className={`h-4 w-4 ${krogerPricing.fulfillment.curbside ? 'text-green-600' : 'text-gray-400'}`} />
+                        <span className={`text-sm font-medium ${krogerPricing.fulfillment.curbside ? 'text-green-700' : 'text-gray-500'}`}>
+                          Curbside
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {krogerPricing.fulfillment.curbside ? 'Available' : 'Not Available'}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-lg border ${krogerPricing.fulfillment.delivery ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <Truck className={`h-4 w-4 ${krogerPricing.fulfillment.delivery ? 'text-green-600' : 'text-gray-400'}`} />
+                        <span className={`text-sm font-medium ${krogerPricing.fulfillment.delivery ? 'text-green-700' : 'text-gray-500'}`}>
+                          Delivery
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {krogerPricing.fulfillment.delivery ? 'Available' : 'Not Available'}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-lg border ${krogerPricing.fulfillment.shipToHome ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <Package className={`h-4 w-4 ${krogerPricing.fulfillment.shipToHome ? 'text-green-600' : 'text-gray-400'}`} />
+                        <span className={`text-sm font-medium ${krogerPricing.fulfillment.shipToHome ? 'text-green-700' : 'text-gray-500'}`}>
+                          Ship to Home
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {krogerPricing.fulfillment.shipToHome ? 'Available' : 'Not Available'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Inventory Status */}
+              {krogerPricing.inventory && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${krogerPricing.inventory.stockLevel === 'high' ? 'bg-green-500' : krogerPricing.inventory.stockLevel === 'medium' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+                    <span className="text-sm font-medium text-gray-700">
+                      Stock Level: {krogerPricing.inventory.stockLevel || 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Basic Pricing for Kroger products without detailed data */}
+        {isKrogerProduct && !krogerPricing && (product.price || product.sale_price) && (
+          <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="p-4 bg-green-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-green-800">
-                    {isKrogerProduct ? 'Kroger Price' : 'Best Price'}
-                  </p>
-                  <p className="text-sm text-green-600">
-                    {isKrogerProduct ? 'Kroger' : bestStore?.store.name}
-                  </p>
+                  <p className="font-medium text-green-800">Kroger Price</p>
+                  <p className="text-sm text-green-600">Kroger</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    {isKrogerProduct ? (
-                      <>
-                        <p className="text-2xl font-bold text-green-700">
-                          ${(product.sale_price || product.price)?.toFixed(2)}
-                        </p>
-                        {product.sale_price && product.price && (
-                          <p className="text-sm text-gray-500 line-through">
-                            ${product.price.toFixed(2)}
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-2xl font-bold text-green-700">
-                          ${(bestStore!.sale_price || bestStore!.price).toFixed(2)}
-                        </p>
-                        {bestStore!.sale_price && (
-                          <p className="text-sm text-gray-500 line-through">
-                            ${bestStore!.price.toFixed(2)}
-                          </p>
-                        )}
-                      </>
+                    <p className="text-2xl font-bold text-green-700">
+                      ${(product.sale_price || product.price)?.toFixed(2)}
+                    </p>
+                    {product.sale_price && product.price && (
+                      <p className="text-sm text-gray-500 line-through">
+                        ${product.price.toFixed(2)}
+                      </p>
                     )}
                   </div>
                   <Button
-                    onClick={() => handleAddToList(bestStore)}
+                    onClick={() => handleAddToList()}
                     size="icon"
                     className="bg-blue-600 hover:bg-blue-700"
                   >
@@ -359,8 +496,8 @@ const Product = () => {
                 </div>
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        )}
 
         {/* Store Prices for local products */}
         {!isKrogerProduct && prices.length > 0 && (
@@ -410,8 +547,81 @@ const Product = () => {
           </div>
         )}
 
-        {/* Product Details */}
-        {(product.ingredients || (product.allergens && product.allergens.length > 0)) && (
+        {/* Enhanced Kroger Product Details */}
+        {isKrogerProduct && product.kroger_data && (
+          <div className="bg-white rounded-xl p-6 shadow-sm">
+            <h2 className="text-lg font-semibold mb-4">Product Details</h2>
+            
+            {/* Temperature Information */}
+            {product.kroger_data.temperature && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Thermometer className="h-4 w-4 text-blue-600" />
+                  <h3 className="font-medium text-gray-700">Temperature Requirements</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm px-3 py-1 rounded-full ${
+                    product.kroger_data.temperature.indicator === 'Frozen' ? 'bg-blue-100 text-blue-700' :
+                    product.kroger_data.temperature.indicator === 'Refrigerated' ? 'bg-green-100 text-green-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {product.kroger_data.temperature.indicator}
+                  </span>
+                  {product.kroger_data.temperature.heatSensitive && (
+                    <span className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded-full">
+                      Heat Sensitive
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Categories */}
+            {product.kroger_data.categories && product.kroger_data.categories.length > 0 && (
+              <div className="mb-4">
+                <h3 className="font-medium text-gray-700 mb-2">Categories</h3>
+                <div className="flex flex-wrap gap-2">
+                  {product.kroger_data.categories.map((category: string, index: number) => (
+                    <span
+                      key={index}
+                      className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
+                    >
+                      {category}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Country of Origin */}
+            {product.kroger_data.countryOrigin && product.kroger_data.countryOrigin !== 'null' && (
+              <div className="mb-4">
+                <h3 className="font-medium text-gray-700 mb-2">Country of Origin</h3>
+                <p className="text-sm text-gray-600">{product.kroger_data.countryOrigin}</p>
+              </div>
+            )}
+
+            {/* Aisle Locations */}
+            {product.kroger_data.aisleLocations && product.kroger_data.aisleLocations.length > 0 && (
+              <div className="mb-4">
+                <h3 className="font-medium text-gray-700 mb-2">Store Location</h3>
+                <div className="space-y-2">
+                  {product.kroger_data.aisleLocations.map((location: any, index: number) => (
+                    <div key={index} className="text-sm bg-gray-50 p-2 rounded">
+                      <p><strong>Aisle {location.number}</strong> - {location.description}</p>
+                      {location.shelfNumber && (
+                        <p className="text-gray-600">Shelf {location.shelfNumber}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Regular Product Details for local products */}
+        {!isKrogerProduct && (product.ingredients || (product.allergens && product.allergens.length > 0)) && (
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-semibold mb-4">Product Details</h2>
             
