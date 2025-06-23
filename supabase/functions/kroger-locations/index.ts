@@ -20,6 +20,8 @@ serve(async (req) => {
       throw new Error('Latitude and longitude are required');
     }
 
+    console.log('Searching for Kroger locations near:', { lat, lng, radius });
+
     // Get Kroger access token
     const authResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/kroger-auth`, {
       headers: {
@@ -29,10 +31,12 @@ serve(async (req) => {
     });
 
     if (!authResponse.ok) {
+      console.error('Auth response not ok:', authResponse.status);
       throw new Error('Failed to authenticate with Kroger');
     }
 
     const { access_token } = await authResponse.json();
+    console.log('Got Kroger access token');
 
     // Search for Kroger locations
     const locationsResponse = await fetch(
@@ -46,10 +50,14 @@ serve(async (req) => {
     );
 
     if (!locationsResponse.ok) {
+      console.error('Locations response not ok:', locationsResponse.status);
+      const errorText = await locationsResponse.text();
+      console.error('Locations error response:', errorText);
       throw new Error(`Kroger locations API error: ${locationsResponse.status}`);
     }
 
     const locationsData = await locationsResponse.json();
+    console.log('Found Kroger locations:', locationsData.data?.length || 0);
     
     // Initialize Supabase client
     const supabase = createClient(
@@ -60,56 +68,44 @@ serve(async (req) => {
     // Process and store Kroger locations
     const processedStores = [];
     
-    for (const location of locationsData.data) {
-      const storeData = {
-        id: `kroger-${location.locationId}`,
-        name: `Kroger ${location.name || location.address?.addressLine1 || ''}`.trim(),
-        address: location.address?.addressLine1 || '',
-        city: location.address?.city || '',
-        state: location.address?.state || '',
-        zip_code: location.address?.zipCode || '',
-        latitude: parseFloat(location.geolocation?.latitude || '0'),
-        longitude: parseFloat(location.geolocation?.longitude || '0'),
-        phone: location.phone || null,
-        hours: location.hours || {},
-        supported_apis: ['kroger_api']
-      };
+    for (const location of locationsData.data || []) {
+      try {
+        const storeData = {
+          id: `kroger-${location.locationId}`,
+          name: `Kroger ${location.name || location.address?.addressLine1 || ''}`.trim(),
+          address: location.address?.addressLine1 || '',
+          city: location.address?.city || '',
+          state: location.address?.state || '',
+          zip_code: location.address?.zipCode || '',
+          latitude: parseFloat(location.geolocation?.latitude || '0'),
+          longitude: parseFloat(location.geolocation?.longitude || '0'),
+          phone: location.phone || null,
+          hours: location.hours || {},
+          supported_apis: ['kroger_api']
+        };
 
-      // Only process if we have valid coordinates
-      if (storeData.latitude !== 0 && storeData.longitude !== 0) {
-        // Check if store already exists
-        const { data: existingStore } = await supabase
-          .from('stores')
-          .select('id')
-          .eq('id', storeData.id)
-          .single();
-
-        if (!existingStore) {
-          // Insert new store
-          const { error: insertError } = await supabase
+        // Only process if we have valid coordinates
+        if (storeData.latitude !== 0 && storeData.longitude !== 0) {
+          // Use upsert to insert or update
+          const { error: upsertError } = await supabase
             .from('stores')
-            .insert(storeData);
+            .upsert(storeData, { 
+              onConflict: 'id',
+              ignoreDuplicates: false 
+            });
 
-          if (insertError && !insertError.message.includes('duplicate key')) {
-            console.error('Error inserting store:', insertError);
-          }
-        } else {
-          // Update existing store
-          const { error: updateError } = await supabase
-            .from('stores')
-            .update(storeData)
-            .eq('id', storeData.id);
-
-          if (updateError) {
-            console.error('Error updating store:', updateError);
+          if (upsertError) {
+            console.error('Error upserting store:', upsertError);
+          } else {
+            processedStores.push(storeData);
           }
         }
-
-        processedStores.push(storeData);
+      } catch (storeError) {
+        console.error('Error processing individual store:', storeError);
       }
     }
 
-    console.log(`Processed ${processedStores.length} Kroger locations`);
+    console.log(`Successfully processed ${processedStores.length} Kroger locations`);
 
     return new Response(
       JSON.stringify({ 

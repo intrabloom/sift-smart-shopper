@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useKrogerIntegration } from './useKrogerIntegration';
 
 interface UserLocation {
   id: string;
@@ -32,6 +33,7 @@ interface Store {
 
 export const useLocation = () => {
   const { user } = useAuth();
+  const { syncKrogerLocations } = useKrogerIntegration();
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
@@ -83,20 +85,35 @@ export const useLocation = () => {
     });
   };
 
-  // Geocode address to coordinates (mock implementation)
+  // Geocode address to coordinates using Nominatim (OpenStreetMap)
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number }> => {
-    // Mock implementation - in production use Google Maps API or similar
-    const coordinates = {
-      'Springfield, IL': { lat: 39.7817, lng: -89.6501 },
-      'Chicago, IL': { lat: 41.8781, lng: -87.6298 },
-      'Peoria, IL': { lat: 40.6936, lng: -89.5890 }
-    };
-    
-    const key = Object.keys(coordinates).find(key => 
-      address.toLowerCase().includes(key.toLowerCase())
-    );
-    
-    return key ? coordinates[key as keyof typeof coordinates] : { lat: 39.7817, lng: -89.6501 };
+    try {
+      console.log('Geocoding address:', address);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=us`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Geocoding request failed');
+      }
+      
+      const data = await response.json();
+      
+      if (data.length === 0) {
+        throw new Error('Address not found');
+      }
+      
+      const result = {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+      
+      console.log('Geocoded result:', result);
+      return result;
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      throw new Error('Failed to geocode address');
+    }
   };
 
   // Find stores near a location
@@ -105,11 +122,19 @@ export const useLocation = () => {
     setError(null);
     
     try {
+      console.log('Finding stores near:', { lat, lng, radiusMiles });
+      
+      // First, sync Kroger locations for this area
+      await syncKrogerLocations(lat, lng, radiusMiles);
+      
+      // Then fetch all stores from database
       const { data: storesData, error: storesError } = await supabase
         .from('stores')
         .select('*');
 
       if (storesError) throw storesError;
+
+      console.log('Found stores in database:', storesData?.length || 0);
 
       // Calculate distances and filter
       const storesWithDistance = (storesData || []).map((store: any) => {
@@ -123,6 +148,7 @@ export const useLocation = () => {
       }).filter(store => store.distance <= radiusMiles)
         .sort((a, b) => a.distance - b.distance);
 
+      console.log('Filtered stores within radius:', storesWithDistance.length);
       setStores(storesWithDistance);
     } catch (err) {
       console.error('Error finding stores:', err);
