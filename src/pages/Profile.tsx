@@ -4,10 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Edit2, LogOut, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { Navbar } from "@/components/Navbar";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -16,7 +17,7 @@ const Profile = () => {
   const [favoriteStores, setFavoriteStores] = useState<string[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
 
   const mockStores = [
@@ -68,23 +69,6 @@ const Profile = () => {
     }
   };
 
-  const handleLogout = async () => {
-    const { error } = await signOut();
-    if (error) {
-      toast({
-        title: "Error signing out",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
-      });
-      navigate("/");
-    }
-  };
-
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -95,28 +79,32 @@ const Profile = () => {
 
   if (!user) return null;
 
+  const leftButton = (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => navigate("/home")}
+    >
+      <ArrowLeft className="h-5 w-5" />
+    </Button>
+  );
+
+  const rightButton = (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setIsEditing(!isEditing)}
+    >
+      <Edit2 className="h-5 w-5" />
+    </Button>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm p-4">
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/home")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-semibold">Profile</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsEditing(!isEditing)}
-          >
-            <Edit2 className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 flex-1">
+      <Navbar 
+        title="Profile" 
+        leftButton={leftButton}
+      />
 
       {/* Content */}
       <div className="p-4 space-y-6">
@@ -208,17 +196,6 @@ const Profile = () => {
             </Button>
           </div>
         )}
-
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <Button
-            onClick={handleLogout}
-            variant="destructive"
-            className="w-full"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Log Out
-          </Button>
-        </div>
       </div>
     </div>
   );
