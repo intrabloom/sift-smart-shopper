@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import ProductSearch from "@/components/ProductSearch";
+import { Navbar } from "@/components/Navbar";
 
 const Home = () => {
   const [showScanner, setShowScanner] = useState(false);
@@ -46,23 +47,10 @@ const Home = () => {
   const displayName = profile?.display_name || user.email?.split("@")[0] || "User";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">Welcome back, {displayName}!</h1>
-            <p className="text-sm text-gray-500">Let's find the best deals</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/profile")}
-          >
-            <User className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 flex-1">
+      <Navbar 
+        title={`Welcome back, ${displayName}!`}
+      />
 
       {/* Main Content */}
       <div className="p-4 space-y-6">
